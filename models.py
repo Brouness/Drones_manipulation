@@ -1,15 +1,21 @@
 from enum import Enum
 
+
 class ZoneType(Enum):
-        NORMAL: str = "Normal"
-        BLOCKED: str = "Blocked"
-        RESTRICTED: str = "Restricted"
-        PRIORITY: str = "Priority"
+    NORMAL: str = "Normal"
+    BLOCKED: str = "Blocked"
+    RESTRICTED: str = "Restricted"
+    PRIORITY: str = "Priority"
+
 
 class Zone:
 
-    def __init__(self, name: str, x: int, y: int, zone_type: ZoneType=ZoneType.normal, color: str | None = None,
-                 max_drones: int = 1, is_start: bool = False, is_end: bool = False) -> None:
+    def __init__(self, name: str, x: int, y: int,
+                 zone_type: ZoneType = ZoneType.normal,
+                 color: str | None = None,
+                 max_drones: int = 1, is_start: bool = False,
+                 is_end: bool = False
+                 ) -> None:
         self.name: str = name
         self.x: int = x
         self.y: int = y
