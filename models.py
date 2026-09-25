@@ -1,17 +1,27 @@
 from enum import Enum
-
+from dataclasses import dataclass
 
 class ZoneType(Enum):
+    """Supported zone types. """
     NORMAL: str = "Normal"
     BLOCKED: str = "Blocked"
     RESTRICTED: str = "Restricted"
     PRIORITY: str = "Priority"
 
 
+def validate_name(name: str) -> None:
+    if not name:
+        raise ValueError("Zone name must not be empty")
+    elif " " in name:
+        raise ValueError(f"invalid zone name {name}: spaces are forbidden")
+    elif "-" in name:
+        raise ValueError(f"invalid zone name {name}: dashes are forbidden")
+
+@dataclass
 class Zone:
 
     def __init__(self, name: str, x: int, y: int,
-                 zone_type: ZoneType = ZoneType.normal,
+                 zone_type: ZoneType = ZoneType.NORMAL,
                  color: str | None = None,
                  max_drones: int = 1, is_start: bool = False,
                  is_end: bool = False
@@ -19,26 +29,24 @@ class Zone:
         self.name: str = name
         self.x: int = x
         self.y: int = y
-        self.zone_type: str = zone_type
-        self.color: str = color
+        self.zone_type: ZoneType = zone_type
+        self.color: str | None = color
         self.max_drones: int = max_drones
         self.is_start: bool = is_start
         self.is_end: bool = is_end
 
     def capacity(self) -> int | None:
-        if self.is_start:
-            return None
-        elif self.is_end:
+        if self.is_start or self.is_end:
             return None
         return self.max_drones
 
     def move_cost(self) -> int:
         if self.zone_type == "Normal":
             return 1
-        elif self.zone_type == "Resticted":
+        elif self.zone_type == "Restricted":
             return 2
-        else:
-            raise ValueError(f"invalid or blocked zone {self.zone_type}")
+        elif self.zone_type == "Priority":
+            return 1
 
     def is_blocked(self) -> bool:
         if self.zone_type == "Blocked":
@@ -54,5 +62,4 @@ class Connection:
         self.max_link = max_link_capacity
 
     def key(self) -> tuple[str, str]:
-        return (self.a, self.b)
-
+        return tuple(sorted((self.a, self.b)))
