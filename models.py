@@ -52,3 +52,7 @@ class Connection:
         self.a: str = a
         self.b: str = b
         self.max_link = max_link_capacity
+
+    def key(self) -> tuple[str, str]:
+        return (self.a, self.b)
+
