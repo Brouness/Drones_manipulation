@@ -51,16 +51,27 @@ class Zone:
 
 @dataclass(frozen=True)
 class Connection:
-    def __init__(self, a: str, b: str) -> None:
-        self.a = a
-        self.b = b
-        self.max_link_capacity = 1
+    a: str
+    b: str
+    max_link_capacity: int = 1
 
     def __post_init__(self) -> None:
+        if " " in self.a or " " in self.b:
+            raise ValueError(f"Invalid name spaces are forbidden {self.a, self.b}")
+        if "-" in self.a or "-" in self.b:
+            raise ValueError(f"Invalid name dashes are forbidden {self.a, self.b}")
         if self.a == self.b:
             raise ValueError(f"Self connection is forbidden {self.a}")
         if self.max_link_capacity <= 0:
             raise ValueError(f"Max link capacity must be a valid positive integer")
 
     def key(self) -> tuple[str, str]:
-        return tuple[sorted(self.a, self.b)]
+        return tuple(sorted((self.a, self.b)))
+
+if __name__ == "__main__":
+    zone1 = Zone("zabelhachmi", 10, 10)
+    zone2 = Zone("morco", 11, 11, ZoneType.RESTRICTED)
+    print(zone1.move_cost())
+    print(zone2.move_cost())
+    edg = Connection(zone1.name, zone2.name, 10)
+    print(edg.max_link_capacity, edg.key())
