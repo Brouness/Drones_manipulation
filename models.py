@@ -10,6 +10,15 @@ class ZoneType(str, Enum):
     PRIORITY = "priority"
 
 
+def _validate_name(name: str) -> None:
+    if not name:
+        raise ValueError("Empty name is forbidden :)")
+    if " " in name:
+        raise ValueError(f"Invalid name spaces are forbidden {name}")
+    if "-" in name:
+        raise ValueError(f"Invalid name dashes are forbidden {name}")
+
+
 @dataclass
 class Zone:
     name: str
@@ -22,12 +31,7 @@ class Zone:
     is_start: bool = False
 
     def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("Empty name is forbidden :)")
-        if " " in self.name:
-            raise ValueError(f"Invalid name spaces are forbidden {self.name}")
-        if "-" in self.name:
-            raise ValueError(f"Invalid name dashes are forbidden {self.name}")
+        _validate_name(self.name)
         if self.max_drones <= 0:
             raise ValueError(
                 f"Max drones must be a positive integer {self.max_drones}")
@@ -56,10 +60,8 @@ class Connection:
     max_link_capacity: int = 1
 
     def __post_init__(self) -> None:
-        if " " in self.a or " " in self.b:
-            raise ValueError(f"Invalid name spaces are forbidden {self.a, self.b}")
-        if "-" in self.a or "-" in self.b:
-            raise ValueError(f"Invalid name dashes are forbidden {self.a, self.b}")
+        _validate_name(self.a)
+        _validate_name(self.b)
         if self.a == self.b:
             raise ValueError(f"Self connection is forbidden {self.a}")
         if self.max_link_capacity <= 0:
