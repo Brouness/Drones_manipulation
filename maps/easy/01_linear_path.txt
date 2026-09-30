@@ -1,11 +1,17 @@
-# Easy Level 1: Simple linear path
-nb_drones: +00000f0#000000020
+# first comment
 
-start_hub: start 0 0 [c##olor=green]
+nb_drones:   # five drones
+   hub: A 0 0 [zone=normal]
+
+    # another comment
+connection: start-A
+# Easy Level 1: Simple linear path
+nb_dro    nes: +00000f0#000000020
+
+star-t_hub: start 0 0 [c##olor=green]
 hub: waypoint1 1 0 [color=blue]
 hub: waypoint2 2 0 [color=blue]
 end_hub: goal 3 0 [color=red]
-
 connection: start-waypoint1
 connection: waypoint1-waypoint2
 connection: waypoint2-goal
