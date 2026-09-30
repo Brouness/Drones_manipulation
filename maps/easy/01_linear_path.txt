@@ -1,6 +1,6 @@
 # first comment
 
-nb_drones:   # five drones
+nb_drones: x  # five drones
    hub: A 0 0 [zone=normal]
 
     # another comment
