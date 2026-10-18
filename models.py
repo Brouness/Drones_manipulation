@@ -49,8 +49,10 @@ class Zone:
             return 1
         if self.zone_type is ZoneType.RESTRICTED:
             return 2
-        raise ValueError(
-                f"Invalid zone type blocked are forbidden {self.zone_type}")
+        else:
+            raise ValueError(
+                    f"Invalid zone type blocked are forbidden {self.zone_type}")
+            
 
 
 @dataclass(frozen=True)
@@ -71,9 +73,13 @@ class Connection:
         return tuple(sorted((self.a, self.b)))
 
 if __name__ == "__main__":
-    zone1 = Zone("zabelhachmi", 10, 10)
-    zone2 = Zone("morco", 11, 11, ZoneType.RESTRICTED)
+    zone1 = Zone("zabelhachmi", 10, 10, zone_type=ZoneType.RESTRICTED)
+    zone2 = Zone("morco", 11, 11, zone_type=ZoneType.PRIORITY)
     print(zone1.move_cost())
     print(zone2.move_cost())
-    edg = Connection(zone1.name, zone2.name, 10)
-    print(edg.max_link_capacity, edg.key())
+    # edg = Connection(zone1.name, zone2.name, 10)
+    # print(edg.max_link_capacity, edg.key())
+    # ZONE_YOUNESS = Zone("youness", 0, 0, "BLACK", )
+    # print(ZONE_YOUNESS.capacity())
+    # print(ZONE_YOUNESS.color)
+    # print(ZONE_YOUNESS.move_cost())

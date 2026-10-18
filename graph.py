@@ -38,7 +38,7 @@ class Graph:
         zone: Zone = self._zones[name]
         return zone
 
-    def neighbors(self, name: str) -> tuple[Zone]:
+    def neighbors(self, name: str) -> tuple[Zone, ...]:
         if name not in self._zones:
             raise KeyError(f"Uncknown zone name {name}")
         my_list: list[Zone] = []
@@ -54,3 +54,19 @@ class Graph:
             raise KeyError(f"Uncknown connection: {a}-{b}")
         connection: Connection = self._connections[keys]
         return connection
+
+# if __name__ == "__main__":
+#     my_graph = Graph()
+#     zone_a = Zone("Zone_a", 1, 1, "Black")
+#     zone_b = Zone("Zone_b", 2, 2, "White")
+#     my_graph.add_zone(zone_a)
+#     my_graph.add_zone(zone_b)
+#     link = Connection("Zone_a", "Zone_b")
+#     link_2 = Connection("Zone_b", "Zone_a")
+#     fake_link = Connection("fake_a", "Zone_a")
+#     my_graph.add_connection(link)
+#     my_graph.add_connection(fake_link)
+#     my_graph.add_connection(link_2)
+#     print(my_graph.neighbors("Zone_a"))
+#     print(my_graph.neighbors("Zone_b"))
+#     print("hello")
