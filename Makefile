@@ -1,11 +1,12 @@
+
 install:
 	python3 -m pip install -r requirements.txt
 
 run:
-	python3 main.py $(FILE)
+	python3 main.py
 
 debug:
-	python3 -m pdb main.py $(FILE)
+	python3 -m pdb main.py
 
 clean:
 	find . -type d -name "__pycache__" -exec
