@@ -2,3 +2,4 @@
 
 start_hub: start 0 -1 [color=green]
 hub: gate1 1 0 [color=orange max_drones=1]
+connection: start-junction [max_link_capacity=2]

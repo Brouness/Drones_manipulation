@@ -1,5 +1,6 @@
 import exceptions
-from models import ZoneType
+from models import ZoneType, Zone, Connection
+from graph import Graph
 
 
 def read_logical_lines(path: str) -> list[tuple[int, str]]:
@@ -25,41 +26,23 @@ def parse_nb_drones(line_no: int, line: str) -> int:
     for char in split_line[1].strip():
         base: str = "0123456789"
         if char not in base:
-            raise exceptions.ParseError("the character is not a digit", line_no, line)
+            raise exceptions.ParseError(
+                "the character is not a digit", line_no, line)
         nb += char
     if not nb:
         raise exceptions.ParseError("empty word", line_no, line)
     digit: int = int(nb)
     if digit <= 0:
-        raise exceptions.ParseError("number of drones must be a positive int", line_no, line)
+        raise exceptions.ParseError(
+            "number of drones must be a positive int", line_no, line)
     return digit
-
-
-def check_value(data: str) -> bool:
-    key_value: list[str] = data.split("=", 1)
-    if key_value[0] == "color":
-        for char in key_value[1]:
-            if not char.isalpha():
-                return True
-    if key_value[0] == "max_drones":
-        nb: str = ""
-        for char in key_value[1]:
-            if not char.isdigit():
-                return True
-            nb += char
-        if int(nb) <= 0:
-            return True
-    if key_value[0] == "zone":
-        if key_value[1] not in ZoneType:
-            return True
-    return False
 
 
 def parse_metadata(
     metadata: str,
     line_number: int,
     source_line: str,
-    ) -> dict[str, str]:
+        ) -> dict[str, str]:
     """Parse the text inside a metadata block into key/value pairs."""
     result: dict[str, str] = {}
     content: str = metadata.strip()
@@ -100,26 +83,280 @@ def parse_metadata(
     return result
 
 
-def parse_zone_line(line: str, line_number: int) -> dict[str, str]:
-    valide_hubs: list[str] = ["hub:", "start_hub:", "end_hub:"]
-    my_dict: dict[str, str] = {}
-    split_line: list[str] = line.split(" ")
-    if split_line[0] not in valide_hubs:
-        raise exceptions.ParseError(f"hubs must be in {valide_hubs}", line_number, line)
-    for data in split_line:
-        print(data)
-    return my_dict
+def parse_zone_line(line: str, line_number: int) -> Zone:
+    """Parse one hub declaration and create its Zone object."""
+    source_line = line
+    clean_line = line.strip()
+
+    if not clean_line:
+        raise exceptions.ParseError(
+            "zone line cannot be empty",
+            line_number,
+            source_line,
+        )
+
+    open_brackets = clean_line.count("[")
+    close_brackets = clean_line.count("]")
+
+    if open_brackets > 1 or close_brackets != open_brackets:
+        raise exceptions.ParseError(
+            "metadata must use one matching pair of brackets",
+            line_number,
+            source_line,
+        )
+
+    metadata: dict[str, str] = {}
+
+    if open_brackets == 1:
+        header, metadata_suffix = clean_line.split("[", 1)
+
+        if not metadata_suffix.endswith("]"):
+            raise exceptions.ParseError(
+                "metadata block must end with ']'",
+                line_number,
+                source_line,
+            )
+
+        metadata_text = metadata_suffix[:-1].strip()
+        metadata = parse_metadata(metadata_text, line_number, source_line)
+    else:
+        header = clean_line
+
+    fields = header.split()
+
+    if len(fields) != 4:
+        raise exceptions.ParseError(
+            "expected a hub type, name, x coordinate, and y coordinate",
+            line_number,
+            source_line,
+        )
+
+    hub_kind, name, x_text, y_text = fields
+    valid_hub_kinds = {"hub:", "start_hub:", "end_hub:"}
+
+    if hub_kind not in valid_hub_kinds:
+        raise exceptions.ParseError(
+            "expected hub:, start_hub:, or end_hub:",
+            line_number,
+            source_line,
+        )
+
+    try:
+        x = int(x_text)
+        y = int(y_text)
+    except ValueError as error:
+        raise exceptions.ParseError(
+            "zone coordinates must be integers",
+            line_number,
+            source_line,
+        ) from error
+
+    allowed_metadata = {"zone", "color", "max_drones"}
+    unknown_keys = set(metadata) - allowed_metadata
+
+    if unknown_keys:
+        raise exceptions.ParseError(
+            f"unknown zone metadata: {', '.join(sorted(unknown_keys))}",
+            line_number,
+            source_line,
+        )
+
+    zone_type = ZoneType.NORMAL
+
+    if "zone" in metadata:
+        try:
+            zone_type = ZoneType(metadata["zone"])
+        except ValueError as error:
+            raise exceptions.ParseError(
+                f"invalid zone type: {metadata['zone']}",
+                line_number,
+                source_line,
+            ) from error
+
+    is_start = hub_kind == "start_hub:"
+    is_end = hub_kind == "end_hub:"
+    max_drones = 1
+
+    # The subject says max_drones is ignored on start and end zones.
+    if "max_drones" in metadata and not (is_start or is_end):
+        capacity_text = metadata["max_drones"]
+
+        if not capacity_text.isascii() or not capacity_text.isdigit():
+            raise exceptions.ParseError(
+                "max_drones must be a positive integer",
+                line_number,
+                source_line,
+            )
+
+        max_drones = int(capacity_text)
+
+        if max_drones <= 0:
+            raise exceptions.ParseError(
+                "max_drones must be greater than zero",
+                line_number,
+                source_line,
+            )
+
+    try:
+        return Zone(
+            name=name,
+            x=x,
+            y=y,
+            color=metadata.get("color"),
+            zone_type=zone_type,
+            max_drones=max_drones,
+            is_start=is_start,
+            is_end=is_end,
+        )
+    except ValueError as error:
+        raise exceptions.ParseError(
+            str(error),
+            line_number,
+            source_line,
+        ) from error
+
+
+def parse_connection_line(line: str, line_number: int) -> Connection:
+    """Parse one connection declaration into a Connection object."""
+    source_line = line
+    clean_line = line.strip()
+
+    if not clean_line:
+        raise exceptions.ParseError(
+            "connection line cannot be empty",
+            line_number,
+            source_line,
+        )
+
+    open_brackets = clean_line.count("[")
+    close_brackets = clean_line.count("]")
+
+    if open_brackets > 1 or close_brackets != open_brackets:
+        raise exceptions.ParseError(
+            "metadata must use one matching pair of brackets",
+            line_number,
+            source_line,
+        )
+
+    metadata: dict[str, str] = {}
+
+    if open_brackets == 1:
+        header, metadata_suffix = clean_line.split("[", 1)
+
+        if not metadata_suffix.endswith("]"):
+            raise exceptions.ParseError(
+                "metadata block must end with ']'",
+                line_number,
+                source_line,
+            )
+
+        metadata_text = metadata_suffix[:-1].strip()
+        metadata = parse_metadata(
+            metadata_text,
+            line_number,
+            source_line,
+        )
+    else:
+        header = clean_line
+
+    fields = header.split()
+
+    if len(fields) != 2:
+        raise exceptions.ParseError(
+            "expected 'connection: <zone1>-<zone2>'",
+            line_number,
+            source_line,
+        )
+
+    connection_kind, endpoints = fields
+
+    if connection_kind != "connection:":
+        raise exceptions.ParseError(
+            "expected a connection: declaration",
+            line_number,
+            source_line,
+        )
+
+    if endpoints.count("-") != 1:
+        raise exceptions.ParseError(
+            "connection endpoints must be separated by one '-'",
+            line_number,
+            source_line,
+        )
+
+    zone_a, zone_b = endpoints.split("-", 1)
+
+    if not zone_a or not zone_b:
+        raise exceptions.ParseError(
+            "both connection endpoints must have a name",
+            line_number,
+            source_line,
+        )
+
+    allowed_metadata = {"max_link_capacity"}
+    unknown_keys = set(metadata) - allowed_metadata
+
+    if unknown_keys:
+        unknown = ", ".join(sorted(unknown_keys))
+        raise exceptions.ParseError(
+            f"unknown connection metadata: {unknown}",
+            line_number,
+            source_line,
+        )
+
+    capacity = 1
+
+    if "max_link_capacity" in metadata:
+        capacity_text = metadata["max_link_capacity"]
+
+        if not capacity_text.isascii() or not capacity_text.isdigit():
+            raise exceptions.ParseError(
+                "max_link_capacity must be a positive integer",
+                line_number,
+                source_line,
+            )
+
+        capacity = int(capacity_text)
+
+        if capacity <= 0:
+            raise exceptions.ParseError(
+                "max_link_capacity must be greater than zero",
+                line_number,
+                source_line,
+            )
+
+    try:
+        return Connection(
+            a=zone_a,
+            b=zone_b,
+            max_link_capacity=capacity,
+        )
+    except ValueError as error:
+        raise exceptions.ParseError(
+            str(error),
+            line_number,
+            source_line,
+        ) from error
+
+
+def parse_map(source_lines: list[tuple[int, str]]) -> Graph:
+    my_graph: Graph = Graph()
+    my_zones: list[Zone] = []
+    my_connections: list[Connection] = []
+    nb_drones: int = parse_nb_drones(source_lines[0][0], source_lines[0][1])        
+    for data in lines[1:]:
+        if "connection:" not in data[1]:
+            my_zones.append(parse_zone_line(data[1], data[0]))
+        else:
+            my_connections.append(parse_connection_line(data[1], data[0]))
+    for zone in my_zones:
+        my_graph.add_zone(zone)
+    for connection in my_connections:
+        my_graph.add_connection(connection)
+    return my_graph
 
 
 if __name__ == "__main__":
-    list_ = read_logical_lines("maps/easy/01_linear_path.txt")
-    for line in list_:
-        print(line)
-    try:
-        print(parse_nb_drones(list_[0][0], list_[0][1]))
-    except exceptions.ParseError as e:
-        print(e)
-    print("hello")
-    print(list_[1][1].split("[")[1])
-    print(parse_metadata(list_[1][1].split("[")[1].replace("]", ""), list_[1][0], list_[1][1]))
-    print(parse_zone_line(list_[1][1], list_[1][0]))
+    lines = read_logical_lines("/home/ybourajl/youness_space_work/fly_in/maps/easy/03_basic_capacity.txt")
+    x = parse_map(lines)
+    print(x.neighbors("end"))
