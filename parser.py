@@ -1,6 +1,14 @@
 import exceptions
-from models import ZoneType, Zone, Connection
+from models import ZoneType, dataclass, Zone, Connection
 from graph import Graph
+
+
+@dataclass
+class ParsedMap:
+    nb_drones: int
+    graph: Graph
+    start_zone: Zone
+    end_zone: Zone
 
 
 def read_logical_lines(path: str) -> list[tuple[int, str]]:
@@ -339,24 +347,121 @@ def parse_connection_line(line: str, line_number: int) -> Connection:
         ) from error
 
 
-def parse_map(source_lines: list[tuple[int, str]]) -> Graph:
-    my_graph: Graph = Graph()
-    my_zones: list[Zone] = []
-    my_connections: list[Connection] = []
-    nb_drones: int = parse_nb_drones(source_lines[0][0], source_lines[0][1])        
-    for data in lines[1:]:
-        if "connection:" not in data[1]:
-            my_zones.append(parse_zone_line(data[1], data[0]))
+def parse_map(source_lines: list[tuple[int, str]]) -> ParsedMap:
+    """Parse logical input lines and validate the complete map."""
+    if not source_lines:
+        raise exceptions.ParseError(
+            "map is empty; expected nb_drones declaration",
+            1,
+            "<empty file>",
+        )
+
+    first_line_number, first_line = source_lines[0]
+    nb_drones = parse_nb_drones(first_line_number, first_line)
+
+    graph = Graph()
+    start_zone: Zone | None = None
+    end_zone: Zone | None = None
+
+    zone_kinds = {"hub:", "start_hub:", "end_hub:"}
+
+    for line_number, source_line in source_lines[1:]:
+        line = source_line.strip()
+
+        if not line:
+            continue
+
+        # A drone-count declaration is allowed only as the first
+        # logical line.
+        declaration = line.split(":", 1)[0].strip()
+        if declaration == "nb_drones":
+            raise exceptions.ParseError(
+                "nb_drones must be declared only on the first line",
+                line_number,
+                source_line,
+            )
+
+        record_kind = line.split(maxsplit=1)[0]
+
+        if record_kind in zone_kinds:
+            zone = parse_zone_line(line, line_number)
+
+            if zone.is_start:
+                if start_zone is not None:
+                    raise exceptions.ParseError(
+                        "more than one start_hub was defined",
+                        line_number,
+                        source_line,
+                    )
+                start_zone = zone
+
+            if zone.is_end:
+                if end_zone is not None:
+                    raise exceptions.ParseError(
+                        "more than one end_hub was defined",
+                        line_number,
+                        source_line,
+                    )
+                end_zone = zone
+
+            try:
+                graph.add_zone(zone)
+            except ValueError as error:
+                raise exceptions.ParseError(
+                    str(error),
+                    line_number,
+                    source_line,
+                ) from error
+
+        elif record_kind == "connection:":
+            connection = parse_connection_line(line, line_number)
+
+            try:
+                """Adding each connection here means its endpoints must
+                already have been defined."""
+                graph.add_connection(connection)
+            except (KeyError, ValueError) as error:
+                raise exceptions.ParseError(
+                    str(error),
+                    line_number,
+                    source_line,
+                ) from error
+
         else:
-            my_connections.append(parse_connection_line(data[1], data[0]))
-    for zone in my_zones:
-        my_graph.add_zone(zone)
-    for connection in my_connections:
-        my_graph.add_connection(connection)
-    return my_graph
+            raise exceptions.ParseError(
+                f"unknown map declaration: {record_kind}",
+                line_number,
+                source_line,
+            )
+
+    last_line_number, last_line = source_lines[-1]
+
+    if start_zone is None:
+        raise exceptions.ParseError(
+            "map is missing a start_hub declaration",
+            last_line_number,
+            last_line,
+        )
+
+    if end_zone is None:
+        raise exceptions.ParseError(
+            "map is missing an end_hub declaration",
+            last_line_number,
+            last_line,
+        )
+
+    return ParsedMap(
+        nb_drones=nb_drones,
+        graph=graph,
+        start_zone=start_zone,
+        end_zone=end_zone,
+    )
 
 
 if __name__ == "__main__":
-    lines = read_logical_lines("/home/ybourajl/youness_space_work/fly_in/maps/easy/03_basic_capacity.txt")
+    lines = read_logical_lines(
+        "/home/ybourajl/youness_space_work/fly_in/maps/easy/03_basic_capacity.txt")
     x = parse_map(lines)
-    print(x.neighbors("end"))
+    print(x.nb_drones)
+    print(x.graph._adjacency)
+    print(x.end_zone.color)
