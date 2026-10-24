@@ -1,0 +1,7 @@
+# Entering R takes two turns; the connection is occupied on both turns.
+nb_drones: 1
+start_hub: S 0 0
+hub: R 1 0 [zone=restricted]
+end_hub: E 2 0
+connection: S-R
+connection: R-E

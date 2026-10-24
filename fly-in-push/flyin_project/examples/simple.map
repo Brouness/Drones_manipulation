@@ -1,0 +1,7 @@
+# Two drones share a one-lane route. The scheduler pipelines them.
+nb_drones: 2
+start_hub: S 0 0
+hub: A 1 0 [max_drones=1]
+end_hub: E 2 0
+connection: S-A [max_link_capacity=1]
+connection: A-E [max_link_capacity=1]
